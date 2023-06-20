@@ -2,6 +2,10 @@ const debug = process.env.DEBUG
 
 const config = {
   debug,
+  tg: {
+    apiId: Number(process.env.API_ID ?? 0),
+    apiHash: process.env.API_HASH ?? ''
+  },
   explorer (txHash: string): string {
     return (process.env.EXPLORER_URL ?? 'https://explorer.harmony.one/#/tx/{{txId}}').replace('{{txId}}', txHash)
   },
