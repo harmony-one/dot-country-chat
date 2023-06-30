@@ -4,9 +4,13 @@ import Dotenv from 'dotenv-webpack'
 import HtmlWebpackPlugin from 'html-webpack-plugin'
 import { BundleAnalyzerPlugin } from 'webpack-bundle-analyzer'
 import webpack from 'webpack'
+import NodePolyfillPlugin from 'node-polyfill-webpack-plugin'
 import path, { dirname } from 'path'
 
 import { fileURLToPath } from 'url'
+import { createRequire } from 'node:module'
+
+const require = createRequire(import.meta.url)
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const __filename = fileURLToPath(import.meta.url)
@@ -88,21 +92,24 @@ export default {
   },
   resolve: {
     modules: [path.resolve(__dirname, 'node_modules'), 'node_modules'],
-    extensions: ['.tsx', '.ts', '.js']
-    // fallback: {
-    //   crypto: require.resolve('crypto-browserify'),
-    //   stream: require.resolve('stream-browserify'),
-    //   assert: require.resolve('assert'),
-    //   http: require.resolve('stream-http'),
-    //   https: require.resolve('https-browserify'),
-    //   os: require.resolve('os-browserify'),
-    //   url: require.resolve('url')
-    // }
+    extensions: ['.tsx', '.ts', '.js'],
+    preferRelative: true,
+    fallback: {
+      crypto: require.resolve('crypto-browserify'),
+      stream: require.resolve('stream-browserify'),
+      assert: require.resolve('assert'),
+      http: require.resolve('stream-http'),
+      https: require.resolve('https-browserify'),
+      os: require.resolve('os-browserify'),
+      url: require.resolve('url'),
+      constants: require.resolve('constants-browserify')
+    }
   },
   mode: 'production',
   optimization: { splitChunks: { chunks: 'all' } },
 
   plugins: [
+    // new NodePolyfillPlugin(),
     new Dotenv({
       allowEmptyValues: true,
       systemvars: true

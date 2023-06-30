@@ -9,7 +9,7 @@ const Session = new StringSession(getStoredSessionString())
 const Client = new TelegramClient(Session, config.tg.apiId, config.tg.apiHash, { connectionRetries: 5 })
 const initialState = { phoneNumber: '', password: '', phoneCode: '' }
 
-export const Login: React.FC = () => {
+const Login: React.FC = () => {
   const [{ phoneNumber, password, phoneCode }, setAuthInfo] = useState(initialState)
 
   async function sendCodeHandler (): Promise<void> {
@@ -33,7 +33,9 @@ export const Login: React.FC = () => {
           console.error(err)
         }
       })
-      localStorage.setItem('dc-chat-session', Client.session.save() as string) // Save session to local storage
+      // eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
+      const session = Client.session.save() as unknown as string
+      localStorage.setItem('dc-chat-session', session) // Save session to local storage
       await Client.sendMessage('me', { message: "You're successfully logged in!" })
     } catch (ex: any) {
       console.error(ex)
@@ -73,3 +75,5 @@ export const Login: React.FC = () => {
     </>
   )
 }
+
+export default Login
