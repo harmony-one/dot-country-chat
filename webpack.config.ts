@@ -39,6 +39,11 @@ export default {
         use: 'ts-loader',
         exclude: /node_modules/
       },
+      // {
+      //   test: /\.js$/,
+      //   use: 'babel-loader',
+      //   exclude: /node_modules/
+      // },
       {
         test: /\.svg$/i,
         type: 'asset',
@@ -86,23 +91,35 @@ export default {
     publicPath: '/'
   },
 
-  externals: {
-    path: 'path',
-    fs: 'fs'
-  },
   resolve: {
     modules: [path.resolve(__dirname, 'node_modules'), 'node_modules'],
     extensions: ['.tsx', '.ts', '.js'],
-    preferRelative: true,
+    // preferRelative: true,
     fallback: {
-      crypto: require.resolve('crypto-browserify'),
-      stream: require.resolve('stream-browserify'),
-      assert: require.resolve('assert'),
-      http: require.resolve('stream-http'),
-      https: require.resolve('https-browserify'),
-      os: require.resolve('os-browserify'),
-      url: require.resolve('url'),
-      constants: require.resolve('constants-browserify')
+    //   crypto: require.resolve('crypto-browserify'),
+    //   stream: require.resolve('stream-browserify'),
+    //   assert: require.resolve('assert'),
+    //   http: require.resolve('stream-http'),
+    //   https: require.resolve('https-browserify'),
+    //   os: require.resolve('os-browserify'),
+    //   url: require.resolve('url'),
+    //   constants: require.resolve('constants-browserify'),
+    //   zlib: require.resolve('browserify-zlib'),
+    //   querystring: require.resolve('querystring-es3')
+
+      // net: require.resolve('net-browserify'),
+      // async_hooks: false,
+
+      fs: false,
+      path: require.resolve('path-browserify'),
+      net: false,
+      crypto: false,
+      os: require.resolve('os-browserify/browser'),
+      util: require.resolve('util/'),
+      assert: false,
+      stream: false,
+      events: false,
+      constants: false
     }
   },
   mode: 'production',
