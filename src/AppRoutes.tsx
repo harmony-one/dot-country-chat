@@ -1,7 +1,7 @@
 import React, { lazy, Suspense } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import BotChat from './BotChat'
-
+import './app.scss'
 const AppRoutes: React.FC = () => {
   return (
     <BrowserRouter>

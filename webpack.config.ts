@@ -96,37 +96,37 @@ export default {
     extensions: ['.tsx', '.ts', '.js'],
     // preferRelative: true,
     fallback: {
-    //   crypto: require.resolve('crypto-browserify'),
-    //   stream: require.resolve('stream-browserify'),
-    //   assert: require.resolve('assert'),
-    //   http: require.resolve('stream-http'),
-    //   https: require.resolve('https-browserify'),
-    //   os: require.resolve('os-browserify'),
-    //   url: require.resolve('url'),
-    //   constants: require.resolve('constants-browserify'),
-    //   zlib: require.resolve('browserify-zlib'),
-    //   querystring: require.resolve('querystring-es3')
+      // crypto: require.resolve('crypto-browserify'),
+      //   stream: require.resolve('stream-browserify'),
+      //   assert: require.resolve('assert'),
+      //   http: require.resolve('stream-http'),
+      //   https: require.resolve('https-browserify'),
+      //   os: require.resolve('os-browserify'),
+      //   url: require.resolve('url'),
+      //   constants: require.resolve('constants-browserify'),
+      //   zlib: require.resolve('browserify-zlib'),
+      //   querystring: require.resolve('querystring-es3')
 
       // net: require.resolve('net-browserify'),
-      // async_hooks: false,
+      async_hooks: false,
 
       fs: false,
       path: require.resolve('path-browserify'),
       net: false,
-      crypto: false,
+      // crypto: false,
       os: require.resolve('os-browserify/browser'),
-      util: require.resolve('util/'),
-      assert: false,
-      stream: false,
-      events: false,
-      constants: false
+      util: require.resolve('util/')
+      // assert: false,
+      // stream: false,
+      // events: false,
+      // constants: false
     }
   },
   mode: 'production',
   optimization: { splitChunks: { chunks: 'all' } },
 
   plugins: [
-    // new NodePolyfillPlugin(),
+    new NodePolyfillPlugin(),
     new Dotenv({
       allowEmptyValues: true,
       systemvars: true

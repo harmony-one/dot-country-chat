@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react'
-import { TelegramClient } from 'telegram'
-import { StringSession } from 'telegram/sessions'
 import Login from './Login'
+import { Main } from './components/Layout'
+import { Container } from './Common'
 
 const BotChat: React.FC = () => {
-  return <Login/>
+  return <Container>
+    <Login/>
+  </Container>
 }
 
 export default BotChat
