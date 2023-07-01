@@ -1,11 +1,11 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 
 import { TelegramClient, Api, password as Password } from 'telegram'
 import { StringSession } from 'telegram/sessions'
 import config from '../config'
 import { extractError, getStoredSessionString, simpleCallback } from './util'
 import { Button, Input } from './components/Controls'
-import { Desc, SmallText } from './components/Text'
+import { BaseText, Desc, Heading, SmallText } from './components/Text'
 import { InputBox, LabelText, SmallTextGrey, WideLabel } from './Common'
 import { Row } from './components/Layout'
 import styled from 'styled-components'
@@ -19,6 +19,7 @@ const Client = new TelegramClient(Session, config.tg.apiId, config.tg.apiHash, {
 const initialState = { phoneNumber: '', password: '', phoneCode: '' }
 
 const Sections = {
+  LoginByQrCode: 1,
   LoginByPhone: 11,
   VerifyCode: 12,
   VerifyPassword: 13,
@@ -32,6 +33,33 @@ const Login: React.FC = () => {
     phoneCodeHash?: string
     isCodeViaApp?: boolean
   }>({})
+  const [qrCodeData, setQrCodeData] = useState<{ token?: Buffer, expires?: number }>({})
+
+  useEffect(() => {
+    async function f (): Promise<void> {
+      const result = await Client.invoke(
+        new Api.auth.ExportLoginToken({
+          apiId: config.tg.apiId,
+          apiHash: config.tg.apiHash,
+          exceptIds: []
+        })
+      )
+      if (!(result instanceof Api.auth.LoginToken)) {
+        toast.error('Cannot retrieve login QR code')
+      }
+
+      const { token, expires } = result as { token?: Buffer, expires?: number }
+      if (!token || !expires) {
+        toast.error('Invalid QR code response from Telegram')
+        return
+      }
+      setQrCodeData({ token, expires })
+    }
+    const h = setInterval(() => {
+      f().catch(console.error)
+    }, 30000)
+    return () => { clearInterval(h) }
+  }, [])
 
   async function sendCodeHandler (): Promise<void> {
     await Client.connect() // Connecting to the server
@@ -102,6 +130,12 @@ const Login: React.FC = () => {
   }
 
   return (<LoginContainer>
+    <Desc style={{ marginBottom: 36 }}>
+      <SmallTextGrey >Using your Telegram account</SmallTextGrey>
+    </Desc>
+    {section === Sections.LoginByQrCode && <Desc>
+
+    </Desc>}
     {section === Sections.LoginByPhone && <Desc>
       <Row>
         <WideLabel>Phone</WideLabel>
