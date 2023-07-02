@@ -3,14 +3,14 @@ import React, { useEffect, useState } from 'react'
 import { TelegramClient, Api, password as Password } from 'telegram'
 import { StringSession } from 'telegram/sessions'
 import config from '../config'
-import { extractError, getStoredSessionString, simpleCallback } from './util'
+import { extractError, getStoredSessionString, simpleCallback, useWindowDimensions } from './util'
 import { Button, Input } from './components/Controls'
 import { BaseText, Desc, Heading, SmallText } from './components/Text'
 import { InputBox, LabelText, SmallTextGrey, WideLabel } from './Common'
 import { Row } from './components/Layout'
 import styled from 'styled-components'
 import { toast } from 'react-toastify'
-
+import qrcode from 'qrcode'
 const LoginContainer = styled.div`
   max-width: 480px;
 `
@@ -26,14 +26,16 @@ const Sections = {
   Done: 100
 }
 const Login: React.FC = () => {
+  const { isMobile } = useWindowDimensions()
   const [{ phoneNumber, password, phoneCode }, setAuthInfo] = useState(initialState)
-  const [section, setSection] = useState(Sections.LoginByPhone)
+  const [section, setSection] = useState(Sections.LoginByQrCode)
   const [requirePassword, setRequirePassword] = useState(false)
   const [sendCodeResponse, setSendCodeResponse] = useState<{
     phoneCodeHash?: string
     isCodeViaApp?: boolean
   }>({})
-  const [qrCodeData, setQrCodeData] = useState<{ token?: Buffer, expires?: number }>({})
+  const [loginToken, setLoginToken] = useState<{ token?: Buffer, expires?: number }>({})
+  const [qrCodeData, setQrCodeData] = useState<string>('')
 
   useEffect(() => {
     async function f (): Promise<void> {
@@ -44,25 +46,41 @@ const Login: React.FC = () => {
           exceptIds: []
         })
       )
+      console.log(result)
       if (!(result instanceof Api.auth.LoginToken)) {
         toast.error('Cannot retrieve login QR code')
       }
 
       const { token, expires } = result as { token?: Buffer, expires?: number }
+
       if (!token || !expires) {
         toast.error('Invalid QR code response from Telegram')
         return
       }
-      setQrCodeData({ token, expires })
+
+      setLoginToken({ token, expires })
     }
-    const h = setInterval(() => {
-      f().catch(console.error)
-    }, 30000)
+    let h
+    Client.connect().then(async () => {
+      await f().catch(console.error)
+      h = setInterval(() => {
+        f().catch(console.error)
+      }, 30000)
+    }).catch(console.error)
+
     return () => { clearInterval(h) }
   }, [])
 
+  useEffect(() => {
+    if (!loginToken.token) {
+      return
+    }
+    const uri = `tg://login?token=${loginToken.token.toString('base64url')}`
+    console.log('uri', uri)
+    setQrCodeData(qrcode.toDataURL(uri, { errorCorrectionLevel: 'low', width: isMobile ? 192 : 256 }))
+  }, [loginToken, isMobile])
+
   async function sendCodeHandler (): Promise<void> {
-    await Client.connect() // Connecting to the server
     setSendCodeResponse(await Client.sendCode(
       {
         apiId: config.tg.apiId,
@@ -134,7 +152,12 @@ const Login: React.FC = () => {
       <SmallTextGrey >Using your Telegram account</SmallTextGrey>
     </Desc>
     {section === Sections.LoginByQrCode && <Desc>
-
+      <img
+          alt={'QR Code'}
+          src={qrCodeData}
+          style={ { border: '1px solid lightgrey', borderRadius: 8, boxShadow: '0px 0px 10px lightgrey', width: isMobile ? 192 : 256 }}
+      />
+      <SmallTextGrey>Login by scanning the QR Code on Telegram</SmallTextGrey>
     </Desc>}
     {section === Sections.LoginByPhone && <Desc>
       <Row>
