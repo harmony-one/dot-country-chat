@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useContext, useEffect, useState } from 'react'
 
 import { TelegramClient, Api, password as Password } from 'telegram'
 import { StringSession } from 'telegram/sessions'
@@ -12,6 +12,7 @@ import styled from 'styled-components'
 import { toast } from 'react-toastify'
 import qrcode from 'qrcode'
 import { Loading } from './components/Misc'
+import { TelegramContext } from './Context'
 const LoginContainer = styled.div`
   max-width: 480px;
 `
@@ -28,6 +29,7 @@ const Sections = {
   Done: 100
 }
 const Login: React.FC = () => {
+  const { setUser, setSession, setLoginState } = useContext(TelegramContext)
   const { isMobile } = useWindowDimensions()
   const [{ phoneNumber, password, phoneCode }, setAuthInfo] = useState(initialState)
   const [section, setSection] = useState(Sections.LoginByQrCode)
@@ -113,8 +115,7 @@ const Login: React.FC = () => {
             r.authorization instanceof Api.auth.Authorization
         ) {
           toast.success('Login Successful')
-          // TODO set user
-          // return r.authorization.user
+          setUser(r.authorization.user)
         } else if (r instanceof Api.auth.LoginTokenMigrateTo) {
           await Client._switchDC(r.dcId)
           const mr = await Client.invoke(
@@ -124,9 +125,8 @@ const Login: React.FC = () => {
             mr instanceof Api.auth.LoginTokenSuccess &&
               mr.authorization instanceof Api.auth.Authorization
           ) {
-            // TODO: success; set user
             toast.success('Login Successful')
-            // return migratedResult.authorization.user
+            setUser(mr.authorization.user)
           } else {
             console.log(mr)
             toast.error('Unexpected error during login. Please refresh and try again')
@@ -139,6 +139,7 @@ const Login: React.FC = () => {
         if (ex.errorMessage === 'SESSION_PASSWORD_NEEDED') {
           setRequirePassword(true)
           setSection(Sections.VerifyPassword)
+          setLoginState(Sections.VerifyPassword)
         } else {
           console.error(ex)
           toast.error(`Error during QR Code sign in: ${ex.toString()}`)
@@ -146,7 +147,7 @@ const Login: React.FC = () => {
       }
     }
     f().catch(console.error)
-  }, [qrScanAccepted])
+  }, [setLoginState, setUser, qrScanAccepted])
 
   async function sendCodeHandler (): Promise<void> {
     setSendCodeResponse(await Client.sendCode(
@@ -157,6 +158,7 @@ const Login: React.FC = () => {
       phoneNumber
     ))
     setSection(Sections.VerifyCode)
+    setLoginState(Sections.VerifyCode)
   }
 
   async function verifyPassword (): Promise<void> {
@@ -171,13 +173,13 @@ const Login: React.FC = () => {
       const { user } = (await Client.invoke(
         new Api.auth.CheckPassword({ password: passwordSrpCheck })
       )) as Api.auth.Authorization
-      // console.log(user)
-      // TODO: set user
-
+      setUser(user)
       // eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
       const session = Client.session.save() as unknown as string
       localStorage.setItem('dc-chat-session', session) // Save session to local storage
+      setSession(session)
       setSection(Sections.Done)
+      setLoginState(Sections.Done)
     } catch (ex: any) {
       console.error(ex)
       toast.error(`Error during sign in: ${ex.toString()}`)
@@ -187,6 +189,7 @@ const Login: React.FC = () => {
   async function signInWithCode (): Promise<void> {
     if (requirePassword && !password) {
       setSection(Sections.VerifyPassword)
+      setLoginState(Sections.VerifyPassword)
     }
     try {
       const result = await Client.invoke(new Api.auth.SignIn({ phoneNumber, phoneCodeHash: sendCodeResponse.phoneCodeHash, phoneCode }))
@@ -198,10 +201,12 @@ const Login: React.FC = () => {
       const session = Client.session.save() as unknown as string
       localStorage.setItem('dc-chat-session', session) // Save session to local storage
       setSection(Sections.Done)
+      setLoginState(Sections.Done)
     } catch (ex: any) {
       if (ex.errorMessage === 'SESSION_PASSWORD_NEEDED') {
         setRequirePassword(true)
         setSection(Sections.VerifyPassword)
+        setLoginState(Sections.VerifyPassword)
       } else {
         console.error(ex)
         toast.error(`Error during sign in: ${ex.toString()}`)
