@@ -72,12 +72,18 @@ const Login: React.FC = () => {
   }, [])
 
   useEffect(() => {
-    if (!loginToken.token) {
-      return
+    async function f (): Promise<void> {
+      if (!loginToken.token) {
+        return
+      }
+      const encodedToken = loginToken.token.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+      const uri = `tg://login?token=${encodedToken}`
+
+      const dataUrl = await qrcode.toDataURL(uri, { errorCorrectionLevel: 'low', width: isMobile ? 192 : 256 })
+      console.log('dataUrl', dataUrl)
+      setQrCodeData(dataUrl)
     }
-    const uri = `tg://login?token=${loginToken.token.toString('base64url')}`
-    console.log('uri', uri)
-    setQrCodeData(qrcode.toDataURL(uri, { errorCorrectionLevel: 'low', width: isMobile ? 192 : 256 }))
+    f().catch(console.error)
   }, [loginToken, isMobile])
 
   async function sendCodeHandler (): Promise<void> {
