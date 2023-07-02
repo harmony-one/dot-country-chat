@@ -29,7 +29,7 @@ const Sections = {
   Done: 100
 }
 const Login: React.FC = () => {
-  const { setUser, setSession, setLoginState } = useContext(TelegramContext)
+  const { setUser, setSession, setLoginState, setClient } = useContext(TelegramContext)
   const { isMobile } = useWindowDimensions()
   const [{ phoneNumber, password, phoneCode }, setAuthInfo] = useState(initialState)
   const [section, setSection] = useState(Sections.LoginByQrCode)
@@ -67,6 +67,7 @@ const Login: React.FC = () => {
     }
     let h
     Client.connect().then(async () => {
+      setClient(Client)
       await f().catch(console.error)
       h = setInterval(() => {
         f().catch(console.error)
