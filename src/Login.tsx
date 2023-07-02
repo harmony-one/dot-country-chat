@@ -7,13 +7,15 @@ import { extractError, getStoredSessionString, simpleCallback, useWindowDimensio
 import { Button, Input } from './components/Controls'
 import { BaseText, Desc, Heading, SmallText } from './components/Text'
 import { InputBox, LabelText, SmallTextGrey, WideLabel } from './Common'
-import { Row } from './components/Layout'
+import { Col, Row } from './components/Layout'
 import styled from 'styled-components'
 import { toast } from 'react-toastify'
 import qrcode from 'qrcode'
+import { Loading } from './components/Misc'
 const LoginContainer = styled.div`
   max-width: 480px;
 `
+
 const Session = new StringSession(getStoredSessionString())
 const Client = new TelegramClient(Session, config.tg.apiId, config.tg.apiHash, { connectionRetries: 5 })
 const initialState = { phoneNumber: '', password: '', phoneCode: '' }
@@ -36,6 +38,7 @@ const Login: React.FC = () => {
   }>({})
   const [loginToken, setLoginToken] = useState<{ token?: Buffer, expires?: number }>({})
   const [qrCodeData, setQrCodeData] = useState<string>('')
+  const [qrScanAccepted, setQrScanAccepted] = useState(false)
 
   useEffect(() => {
     async function f (): Promise<void> {
@@ -46,7 +49,7 @@ const Login: React.FC = () => {
           exceptIds: []
         })
       )
-      console.log(result)
+      // console.log(result)
       if (!(result instanceof Api.auth.LoginToken)) {
         toast.error('Cannot retrieve login QR code')
       }
@@ -80,11 +83,70 @@ const Login: React.FC = () => {
       const uri = `tg://login?token=${encodedToken}`
 
       const dataUrl = await qrcode.toDataURL(uri, { errorCorrectionLevel: 'low', width: isMobile ? 192 : 256 })
-      console.log('dataUrl', dataUrl)
+      // console.log('dataUrl', dataUrl)
       setQrCodeData(dataUrl)
     }
     f().catch(console.error)
+
+    Client.addEventHandler((update: Api.TypeUpdate) => {
+      if (update instanceof Api.UpdateLoginToken) {
+        setQrScanAccepted(true)
+      }
+    })
   }, [loginToken, isMobile])
+
+  useEffect(() => {
+    async function f (): Promise<void> {
+      if (!qrScanAccepted) {
+        return
+      }
+      try {
+        const r = await Client.invoke(
+          new Api.auth.ExportLoginToken({
+            apiId: config.tg.apiId,
+            apiHash: config.tg.apiHash,
+            exceptIds: []
+          })
+        )
+        if (
+          r instanceof Api.auth.LoginTokenSuccess &&
+            r.authorization instanceof Api.auth.Authorization
+        ) {
+          toast.success('Login Successful')
+          // TODO set user
+          // return r.authorization.user
+        } else if (r instanceof Api.auth.LoginTokenMigrateTo) {
+          await Client._switchDC(r.dcId)
+          const mr = await Client.invoke(
+            new Api.auth.ImportLoginToken({ token: r.token })
+          )
+          if (
+            mr instanceof Api.auth.LoginTokenSuccess &&
+              mr.authorization instanceof Api.auth.Authorization
+          ) {
+            // TODO: success; set user
+            toast.success('Login Successful')
+            // return migratedResult.authorization.user
+          } else {
+            console.log(mr)
+            toast.error('Unexpected error during login. Please refresh and try again')
+          }
+        } else {
+          console.log(r)
+          toast.error('Login with QR code failed')
+        }
+      } catch (ex: any) {
+        if (ex.errorMessage === 'SESSION_PASSWORD_NEEDED') {
+          setRequirePassword(true)
+          setSection(Sections.VerifyPassword)
+        } else {
+          console.error(ex)
+          toast.error(`Error during QR Code sign in: ${ex.toString()}`)
+        }
+      }
+    }
+    f().catch(console.error)
+  }, [qrScanAccepted])
 
   async function sendCodeHandler (): Promise<void> {
     setSendCodeResponse(await Client.sendCode(
@@ -109,7 +171,9 @@ const Login: React.FC = () => {
       const { user } = (await Client.invoke(
         new Api.auth.CheckPassword({ password: passwordSrpCheck })
       )) as Api.auth.Authorization
-      console.log(user)
+      // console.log(user)
+      // TODO: set user
+
       // eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
       const session = Client.session.save() as unknown as string
       localStorage.setItem('dc-chat-session', session) // Save session to local storage
@@ -158,11 +222,16 @@ const Login: React.FC = () => {
       <SmallTextGrey >Using your Telegram account</SmallTextGrey>
     </Desc>
     {section === Sections.LoginByQrCode && <Desc>
-      <img
+      {!qrCodeData && <Col style={{ width: isMobile ? 192 : 256, justifyContent: 'center' }}>
+        <Row style={{ height: isMobile ? 192 : 256, justifyContent: 'center' }}>
+          <Loading size={48}/>
+        </Row>
+      </Col>}
+      {qrCodeData && <img
           alt={'QR Code'}
           src={qrCodeData}
           style={ { border: '1px solid lightgrey', borderRadius: 8, boxShadow: '0px 0px 10px lightgrey', width: isMobile ? 192 : 256 }}
-      />
+      />}
       <SmallTextGrey>Login by scanning the QR Code on Telegram</SmallTextGrey>
     </Desc>}
     {section === Sections.LoginByPhone && <Desc>
