@@ -92,13 +92,12 @@ const Login: React.FC = () => {
         setUser(user)
         return
       }
-      console.log({ authed })
       const expires = await f()
       setTimeout(() => { setQrCodeExpired(true) }, Math.max(0, expires * 1000 - Date.now()))
     }).catch(console.error)
 
     return () => { clearInterval(h) }
-  }, [setClient, currentLoginState, setSession, setUser])
+  }, [setClient, currentLoginState, setSession, setUser, setLoginState])
 
   useEffect(() => {
     async function f (): Promise<void> {
