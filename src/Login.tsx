@@ -84,12 +84,21 @@ const Login: React.FC = () => {
     let h
     Client.connect().then(async () => {
       setClient(Client)
+      const authed = await Client.isUserAuthorized()
+      if (authed) {
+        setLoginState(LoginState.Done)
+        setSession((Client.session as StringSession).save())
+        const user = await Client.getMe()
+        setUser(user)
+        return
+      }
+      console.log({ authed })
       const expires = await f()
       setTimeout(() => { setQrCodeExpired(true) }, Math.max(0, expires * 1000 - Date.now()))
     }).catch(console.error)
 
     return () => { clearInterval(h) }
-  }, [setClient, currentLoginState])
+  }, [setClient, currentLoginState, setSession, setUser])
 
   useEffect(() => {
     async function f (): Promise<void> {
@@ -189,8 +198,7 @@ const Login: React.FC = () => {
         new Api.auth.CheckPassword({ password: passwordSrpCheck })
       )) as Api.auth.Authorization
       setUser(user)
-      // eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
-      const session = Client.session.save() as unknown as string
+      const session = (Client.session as StringSession).save()
       localStorage.setItem('dc-chat-session', session) // Save session to local storage
       setSession(session)
       setCurrentLoginState(LoginState.Done)
@@ -236,7 +244,6 @@ const Login: React.FC = () => {
   if (currentLoginState === LoginState.Done) {
     return <></>
   }
-  console.log(qrCodeExpired)
 
   return (<LoginContainer>
     <Desc style={{ marginBottom: 36 }}>
