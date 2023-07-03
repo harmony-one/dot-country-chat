@@ -86,6 +86,7 @@ const Login: React.FC = () => {
       setClient(Client)
       const authed = await Client.isUserAuthorized()
       if (authed) {
+        setCurrentLoginState(LoginState.Done)
         setLoginState(LoginState.Done)
         setSession((Client.session as StringSession).save())
         const user = await Client.getMe()
@@ -246,7 +247,7 @@ const Login: React.FC = () => {
 
   return (<LoginContainer>
     <Desc style={{ marginBottom: 36 }}>
-      <SmallTextGrey >Using your Telegram account</SmallTextGrey>
+      <SmallTextGrey>Using your Telegram account</SmallTextGrey>
     </Desc>
     {currentLoginState === LoginState.LoginByQrCode && <Desc>
       {!qrCodeData && <QRCodeContainer>
