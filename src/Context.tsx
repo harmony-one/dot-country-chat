@@ -22,7 +22,7 @@ export const TelegramContext = createContext<TelegramContextData>({
   setClient: null
 })
 
-const TelegramProvider = (): React.JSX.Element => {
+const TelegramProvider = ({ children }): React.JSX.Element => {
   const [user, setUser] = useState()
   const [session, setSession] = useState()
   const [loginState, setLoginState] = useState()
@@ -36,7 +36,9 @@ const TelegramProvider = (): React.JSX.Element => {
     setLoginState,
     client,
     setClient
-  }}/>
+  }}>
+    {children}
+  </TelegramContext.Provider>
 }
 
 export default TelegramProvider
