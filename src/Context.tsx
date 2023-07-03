@@ -11,8 +11,6 @@ export interface TelegramContextData {
   setLoginState: any
   client: TelegramClient | null
   setClient: any
-  switchDc: any
-  setSwitchDc: any
 }
 
 export const TelegramContext = createContext<TelegramContextData>({
@@ -23,9 +21,7 @@ export const TelegramContext = createContext<TelegramContextData>({
   loginState: LoginState.Unknown,
   setLoginState: null,
   client: null,
-  setClient: null,
-  switchDc: null,
-  setSwitchDc: null
+  setClient: null
 })
 
 const TelegramProvider = ({ children }): React.JSX.Element => {
@@ -33,7 +29,6 @@ const TelegramProvider = ({ children }): React.JSX.Element => {
   const [session, setSession] = useState(null)
   const [loginState, setLoginState] = useState(LoginState.Unknown)
   const [client, setClient] = useState(null)
-  const [switchDc, setSwitchDc] = useState(null)
   return <TelegramContext.Provider value={{
     user,
     setUser,
@@ -42,9 +37,7 @@ const TelegramProvider = ({ children }): React.JSX.Element => {
     loginState,
     setLoginState,
     client,
-    setClient,
-    switchDc,
-    setSwitchDc
+    setClient
   }}>
     {children}
   </TelegramContext.Provider>

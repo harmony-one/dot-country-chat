@@ -11,6 +11,7 @@ import bigInt from 'big-integer'
 import { FileMigrateError } from 'telegram/errors'
 import styled from 'styled-components'
 import config from '../config'
+import { useTryCatch } from './hooks/useTryCatch'
 export interface ChatLog {
   id: number
   user: string
@@ -32,15 +33,21 @@ const AIBotChat = (): React.JSX.Element => {
   const [input, setInput] = useState('')
   const [prompts, setPrompts] = useState<ChatLog[]>([])
   const [canSubmit, setCanSubmit] = useState(true)
+  const { pending, tryCatch } = useTryCatch(true)
   async function submit (): Promise<void> {
     if (!client) {
       return
     }
-    const message = input
-    await client.sendMessage('@harmonyoneaibot', { message })
-    setPrompts(e => [...e, { message, id: e.length, user: 'You' }])
+    tryCatch(async () => {
+      const message = input
+      await client.sendMessage('@harmonyoneaibot', { message })
+      setPrompts(e => [...e, { message, id: e.length, user: 'You' }])
+    }, false, 'Cannot send message').catch(console.error)
   }
   const onKeyPress = async (e): Promise<void> => {
+    if (pending) {
+      return
+    }
     if (input.length < 1) {
       return
     }
@@ -119,7 +126,7 @@ const AIBotChat = (): React.JSX.Element => {
                 value={input}
                 onChange={({ target: { value } }) => { setInput(value) }}
                 onKeyPress={onKeyPress}/>
-      <Button onClick={submit}>Send</Button>
+      <Button onClick={submit} disabled={pending}>Send</Button>
     </Row>
 
   </DescLeft>

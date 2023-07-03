@@ -4,7 +4,7 @@ import { StringSession } from 'telegram/sessions'
 import config from '../config'
 import { getStoredSessionString, LoginState, useWindowDimensions } from './util'
 import { Button } from './components/Controls'
-import { BaseText, Desc } from './components/Text'
+import { BaseText, Desc, LinkText } from './components/Text'
 import { InputBox, SmallTextGrey, WideLabel } from './Common'
 import { Col, Row } from './components/Layout'
 import styled from 'styled-components'
@@ -12,6 +12,7 @@ import { toast } from 'react-toastify'
 import qrcode from 'qrcode'
 import { Loading } from './components/Misc'
 import { TelegramContext } from './Context'
+import { useTryCatch } from './hooks/useTryCatch'
 const LoginContainer = styled.div`
   max-width: 480px;
 `
@@ -39,7 +40,7 @@ const initialState = { phoneNumber: '', password: '', phoneCode: '' }
 
 const Login: React.FC = () => {
   const { isMobile } = useWindowDimensions()
-  const { setUser, setSession, setLoginState, setClient, setSwitchDc } = useContext(TelegramContext)
+  const { setUser, setSession, setLoginState, setClient } = useContext(TelegramContext)
   const [{ phoneNumber, password, phoneCode }, setAuthInfo] = useState(initialState)
   const [currentLoginState, setCurrentLoginState] = useState(LoginState.LoginByQrCode)
   const [requirePassword, setRequirePassword] = useState(false)
@@ -51,9 +52,10 @@ const Login: React.FC = () => {
   const [qrCodeData, setQrCodeData] = useState<string>('')
   const [qrScanAccepted, setQrScanAccepted] = useState(false)
   const [qrCodeExpired, setQrCodeExpired] = useState(false)
+  const { pending, initializing, tryCatch } = useTryCatch()
 
   useEffect(() => {
-    async function f (): Promise<number> {
+    async function getLoginToken (): Promise<number> {
       const result = await Client.invoke(
         new Api.auth.ExportLoginToken({
           apiId: config.tg.apiId,
@@ -63,6 +65,7 @@ const Login: React.FC = () => {
       )
       if (!(result instanceof Api.auth.LoginToken)) {
         toast.error('Cannot retrieve login QR code')
+        return 0
       }
       const { token, expires } = result as { token?: Buffer, expires?: number }
 
@@ -73,8 +76,8 @@ const Login: React.FC = () => {
       setLoginToken({ token, expires })
       return expires
     }
-    let h
-    Client.connect().then(async () => {
+    tryCatch(async () => {
+      await Client.connect()
       setClient(Client)
       const authed = await Client.isUserAuthorized()
       if (authed) {
@@ -85,17 +88,18 @@ const Login: React.FC = () => {
         setUser(user)
         return
       }
-      const expires = await f()
+      const expires = await getLoginToken()
       setTimeout(() => { setQrCodeExpired(true) }, Math.max(0, expires * 1000 - Date.now()))
-    }).catch(console.error)
-    setSwitchDc(async (dc: number) => {
-      // await Client._switchDC(dc)
-      // Client
+    }, true, 'Cannot retrieve login QR code').catch(console.error)
+    Client.addEventHandler((update: Api.TypeUpdate) => {
+      if (update instanceof Api.UpdateLoginToken) {
+        setQrScanAccepted(true)
+      }
     })
-  }, [setClient, currentLoginState, setSession, setUser, setLoginState, setSwitchDc])
+  }, [tryCatch, setClient, setSession, setUser, setLoginState])
 
   useEffect(() => {
-    async function f (): Promise<void> {
+    async function renderQrCode (): Promise<void> {
       if (!loginToken.token) {
         return
       }
@@ -103,20 +107,13 @@ const Login: React.FC = () => {
       const uri = `tg://login?token=${encodedToken}`
 
       const dataUrl = await qrcode.toDataURL(uri, { errorCorrectionLevel: 'low', width: isMobile ? 192 : 256 })
-      // console.log('dataUrl', dataUrl)
       setQrCodeData(dataUrl)
     }
-    f().catch(console.error)
-
-    Client.addEventHandler((update: Api.TypeUpdate) => {
-      if (update instanceof Api.UpdateLoginToken) {
-        setQrScanAccepted(true)
-      }
-    })
+    renderQrCode().catch(console.error)
   }, [loginToken, isMobile])
 
   useEffect(() => {
-    async function f (): Promise<void> {
+    async function onQrScanAccepted (): Promise<void> {
       if (!qrScanAccepted) {
         return
       }
@@ -164,23 +161,27 @@ const Login: React.FC = () => {
         }
       }
     }
-    f().catch(console.error)
-  }, [setLoginState, setUser, qrScanAccepted])
+    tryCatch(async () => {
+      await onQrScanAccepted()
+    }).catch(console.error)
+  }, [tryCatch, setLoginState, setUser, qrScanAccepted])
 
-  async function sendCodeHandler (): Promise<void> {
-    setSendCodeResponse(await Client.sendCode(
-      {
-        apiId: config.tg.apiId,
-        apiHash: config.tg.apiHash
-      },
-      phoneNumber
-    ))
-    setCurrentLoginState(LoginState.VerifyCode)
-    setLoginState(LoginState.VerifyCode)
+  async function requestLoginCode (): Promise<void> {
+    tryCatch(async () => {
+      setSendCodeResponse(await Client.sendCode(
+        {
+          apiId: config.tg.apiId,
+          apiHash: config.tg.apiHash
+        },
+        phoneNumber
+      ))
+      setCurrentLoginState(LoginState.VerifyCode)
+      setLoginState(LoginState.VerifyCode)
+    }).catch(console.error)
   }
 
   async function verifyPassword (): Promise<void> {
-    try {
+    tryCatch(async () => {
       const passwordData = await Client.invoke(
         new Api.account.GetPassword()
       )
@@ -197,41 +198,40 @@ const Login: React.FC = () => {
       setSession(session)
       setCurrentLoginState(LoginState.Done)
       setLoginState(LoginState.Done)
-    } catch (ex: any) {
-      console.error(ex)
-      toast.error(`Error during sign in: ${ex.toString()}`)
-    }
+    }, false, 'Failed to verify 2FA password').catch(console.error)
   }
 
-  async function signInWithCode (): Promise<void> {
+  async function submitLoginCode (): Promise<void> {
     if (requirePassword && !password) {
       setCurrentLoginState(LoginState.VerifyPassword)
       setLoginState(LoginState.VerifyPassword)
+      return
     }
-    try {
-      const result = await Client.invoke(new Api.auth.SignIn({ phoneNumber, phoneCodeHash: sendCodeResponse.phoneCodeHash, phoneCode }))
-      if (result instanceof Api.auth.AuthorizationSignUpRequired) {
-        toast.error('You have not signed up at Telegram')
-        return
+    tryCatch(async () => {
+      try {
+        const result = await Client.invoke(new Api.auth.SignIn({ phoneNumber, phoneCodeHash: sendCodeResponse.phoneCodeHash, phoneCode }))
+        if (result instanceof Api.auth.AuthorizationSignUpRequired) {
+          toast.error('You have not signed up at Telegram')
+          return
+        }
+        // eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
+        const session = Client.session.save() as unknown as string
+        localStorage.setItem('dc-chat-session', session) // Save session to local storage
+        setCurrentLoginState(LoginState.Done)
+        setLoginState(LoginState.Done)
+      } catch (ex: any) {
+        if (ex.errorMessage === 'SESSION_PASSWORD_NEEDED') {
+          setRequirePassword(true)
+          setCurrentLoginState(LoginState.VerifyPassword)
+          setLoginState(LoginState.VerifyPassword)
+        } else {
+          throw ex
+        }
       }
-      // eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
-      const session = Client.session.save() as unknown as string
-      localStorage.setItem('dc-chat-session', session) // Save session to local storage
-      setCurrentLoginState(LoginState.Done)
-      setLoginState(LoginState.Done)
-    } catch (ex: any) {
-      if (ex.errorMessage === 'SESSION_PASSWORD_NEEDED') {
-        setRequirePassword(true)
-        setCurrentLoginState(LoginState.VerifyPassword)
-        setLoginState(LoginState.VerifyPassword)
-      } else {
-        console.error(ex)
-        toast.error(`Error during sign in: ${ex.toString()}`)
-      }
-    }
+    }, false, 'Error during sign-in').catch(console.error)
   }
 
-  function inputChangeHandler ({ target: { name, value } }): void {
+  function updateInput ({ target: { name, value } }): void {
     setAuthInfo((authInfo) => ({ ...authInfo, [name]: value }))
   }
 
@@ -253,29 +253,30 @@ const Login: React.FC = () => {
         {qrCodeExpired && <BaseText style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)' }}>Code Expired</BaseText>}
       </QRCodeContainer>}
       <SmallTextGrey>Login by scanning the QR Code on Telegram</SmallTextGrey>
+      <LinkText style={{ color: 'blue', marginTop: 32 }} onClick={() => { setCurrentLoginState(LoginState.LoginByPhone) }}>or use phone number instead</LinkText>
     </Desc>}
     {currentLoginState === LoginState.LoginByPhone && <Desc>
       <Row>
         <WideLabel>Phone</WideLabel>
-        <InputBox $width={'100%'} name={'phoneNumber'} value={phoneNumber} placeholder={'+16501234...'} onChange={inputChangeHandler}/>
+        <InputBox $width={'100%'} name={'phoneNumber'} value={phoneNumber} placeholder={'+16501234...'} onChange={updateInput}/>
       </Row>
-      <Button onClick={sendCodeHandler}>Login</Button>
+      <Button disabled={pending || initializing} onClick={requestLoginCode}>Login</Button>
     </Desc>}
     {currentLoginState === LoginState.VerifyCode && <Desc>
+      <SmallTextGrey>Your login code was just sent to {sendCodeResponse.isCodeViaApp ? 'Telegram app' : 'phone via SMS'}</SmallTextGrey>
       <Row>
-        <SmallTextGrey>Your login code was just sent to {sendCodeResponse.isCodeViaApp ? 'Telegram app' : 'phone via SMS'}</SmallTextGrey>
-        <WideLabel>Login Code</WideLabel>
-        <InputBox $width={'100%'} name='phoneCode' value={phoneCode} onChange={inputChangeHandler}/>
+        <WideLabel>Code</WideLabel>
+        <InputBox $width={'100%'} name='phoneCode' value={phoneCode} onChange={updateInput}/>
       </Row>
-      <Button onClick={signInWithCode}>Verify Code</Button>
+      <Button disabled={pending || initializing} onClick={submitLoginCode}>Submit</Button>
       </Desc>}
     {currentLoginState === LoginState.VerifyPassword && <Desc>
       <SmallTextGrey>You have 2FA enabled. Please provide your 2FA password</SmallTextGrey>
       <Row>
         <WideLabel>Password</WideLabel>
-        <InputBox name="password" type={'password'} $width={'100%'} value={password} onChange={inputChangeHandler}/>
+        <InputBox name="password" type={'password'} $width={'100%'} value={password} onChange={updateInput}/>
       </Row>
-      <Button onClick={verifyPassword}>Verify Password</Button>
+      <Button disabled={pending || initializing} onClick={verifyPassword}>Verify</Button>
     </Desc>}
   </LoginContainer>
   )

@@ -7,13 +7,13 @@ interface TryCatchState {
   initializing: boolean
   setPending: React.Dispatch<React.SetStateAction<boolean>>
   setInitializing: React.Dispatch<React.SetStateAction<boolean>>
-  tryCatch: (f: () => Promise<any>, isInit?: boolean) => Promise<void>
+  tryCatch: (f: () => Promise<any>, isInit?: boolean, errorMessage?: string) => Promise<void>
 }
-export const useTryCatch = (): TryCatchState => {
+export const useTryCatch = (initialized = false): TryCatchState => {
   const [pending, setPending] = useState(false)
-  const [initializing, setInitializing] = useState(true)
+  const [initializing, setInitializing] = useState(!initialized)
 
-  const tryCatch = useCallback(async (f: () => Promise<any>, isInit?: boolean): Promise<void> => {
+  const tryCatch = useCallback(async (f: () => Promise<any>, isInit?: boolean, errorMessage?: string): Promise<void> => {
     try {
       if (isInit) {
         setInitializing(true)
@@ -24,11 +24,7 @@ export const useTryCatch = (): TryCatchState => {
     } catch (ex) {
       console.error(ex)
       // @ts-expect-error catch error in response
-      if (ex?.response?.error) {
-        // @ts-expect-error catch error in response
-        toast.error(`Request failed. Error: ${ex?.response?.error}`)
-      }
-      toast.info('Request cancelled')
+      toast.error(`${errorMessage ?? 'Request failed'}. Error: ${ex?.response?.error ?? ex.toString()}`)
     } finally {
       if (isInit) {
         setInitializing(false)
