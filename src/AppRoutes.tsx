@@ -1,6 +1,6 @@
 import React, { lazy, Suspense } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
-import BotChat from './BotChat'
+import ChatApp from './ChatApp'
 import './app.scss'
 import TelegramProvider from './Context'
 const AppRoutes: React.FC = () => {
@@ -8,7 +8,7 @@ const AppRoutes: React.FC = () => {
     <TelegramProvider>
       <BrowserRouter>
         <Routes>
-          <Route path='/*' element={ <BotChat />} />
+          <Route path='/*' element={ <ChatApp />} />
         </Routes>
       </BrowserRouter>
     </TelegramProvider>

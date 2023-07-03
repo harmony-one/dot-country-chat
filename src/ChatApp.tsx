@@ -4,13 +4,15 @@ import { Main } from './components/Layout'
 import { Container, SmallTextGrey } from './Common'
 import { Desc, Title } from './components/Text'
 import TestChat from './TestChat'
+import AIBotChat from './AIBotChat'
 
-const BotChat: React.FC = () => {
+const ChatApp: React.FC = () => {
   return <Container>
     <Title style={{ marginTop: 64 }}>Chat with Harmony AI Bot</Title>
-    <TestChat/>
+    <AIBotChat/>
+    {/* <TestChat/> */}
     <Login/>
   </Container>
 }
 
-export default BotChat
+export default ChatApp

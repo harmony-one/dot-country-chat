@@ -1,9 +1,8 @@
 import React, { useContext, useEffect, useState } from 'react'
-
 import { TelegramClient, Api, password as Password } from 'telegram'
 import { StringSession } from 'telegram/sessions'
 import config from '../config'
-import { getStoredSessionString, useWindowDimensions } from './util'
+import { getStoredSessionString, LoginState, useWindowDimensions } from './util'
 import { Button } from './components/Controls'
 import { BaseText, Desc } from './components/Text'
 import { InputBox, SmallTextGrey, WideLabel } from './Common'
@@ -38,16 +37,9 @@ const Session = new StringSession(getStoredSessionString())
 const Client = new TelegramClient(Session, config.tg.apiId, config.tg.apiHash, { connectionRetries: 5 })
 const initialState = { phoneNumber: '', password: '', phoneCode: '' }
 
-export const LoginState = {
-  LoginByQrCode: 1,
-  LoginByPhone: 11,
-  VerifyCode: 12,
-  VerifyPassword: 13,
-  Done: 100
-}
 const Login: React.FC = () => {
   const { isMobile } = useWindowDimensions()
-  const { setUser, setSession, setLoginState, setClient } = useContext(TelegramContext)
+  const { setUser, setSession, setLoginState, setClient, setSwitchDc } = useContext(TelegramContext)
   const [{ phoneNumber, password, phoneCode }, setAuthInfo] = useState(initialState)
   const [currentLoginState, setCurrentLoginState] = useState(LoginState.LoginByQrCode)
   const [requirePassword, setRequirePassword] = useState(false)
@@ -96,9 +88,11 @@ const Login: React.FC = () => {
       const expires = await f()
       setTimeout(() => { setQrCodeExpired(true) }, Math.max(0, expires * 1000 - Date.now()))
     }).catch(console.error)
-
-    return () => { clearInterval(h) }
-  }, [setClient, currentLoginState, setSession, setUser, setLoginState])
+    setSwitchDc(async (dc: number) => {
+      // await Client._switchDC(dc)
+      // Client
+    })
+  }, [setClient, currentLoginState, setSession, setUser, setLoginState, setSwitchDc])
 
   useEffect(() => {
     async function f (): Promise<void> {

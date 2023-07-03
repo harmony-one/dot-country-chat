@@ -1,4 +1,14 @@
 import React, { useState, useEffect } from 'react'
+
+export const LoginState = {
+  Unknown: 0,
+  LoginByQrCode: 1,
+  LoginByPhone: 11,
+  VerifyCode: 12,
+  VerifyPassword: 13,
+  Done: 100
+}
+
 export function getStoredSessionString (): string {
   const s = localStorage.getItem('dc-chat-session')
   if (!s) {
