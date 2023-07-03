@@ -4,7 +4,8 @@ const config = {
   debug,
   tg: {
     apiId: Number(process.env.API_ID ?? 0),
-    apiHash: process.env.API_HASH ?? ''
+    apiHash: process.env.API_HASH ?? '',
+    botUserId: process.env.BOT_USER_ID ?? '6229418089'
   },
   explorer (txHash: string): string {
     return (process.env.EXPLORER_URL ?? 'https://explorer.harmony.one/#/tx/{{txId}}').replace('{{txId}}', txHash)

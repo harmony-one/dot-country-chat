@@ -4,12 +4,13 @@ import { Button } from './components/Controls'
 import { TelegramContext } from './Context'
 import { LoginState } from './util'
 import { Row } from './components/Layout'
-import { InputBox } from './Common'
+import { InputBox, SmallTextGrey } from './Common'
 import { toast } from 'react-toastify'
 import { Api, utils } from 'telegram'
 import bigInt from 'big-integer'
 import { FileMigrateError } from 'telegram/errors'
 import styled from 'styled-components'
+import config from '../config'
 export interface ChatLog {
   id: number
   user: string
@@ -51,6 +52,8 @@ const AIBotChat = (): React.JSX.Element => {
       } catch (ex: any) {
         console.error(ex)
         toast.error(`Error sending message: ${ex.toString()}`)
+      } finally {
+        setCanSubmit(true)
       }
     }
   }
@@ -58,40 +61,20 @@ const AIBotChat = (): React.JSX.Element => {
     if (!client) {
       return
     }
-    // const handleNewMessage = async (update: any): Promise<void> => {
-    //   try {
-    //
-    //       // const photo = utils.getInputPhoto(msg.media.photo)
-    //       // console.log(photo.getBytes())
-    //       // if (msg.media.photo instanceof Api.Photo) {
-    //       //   const { id, accessHash, fileReference } = msg.media.photo
-    //       //   // const size = sizes.find(s => s.type === 'x') as Api.PhotoSizeProgressive
-    //       //   const file = await client.invoke(new Api.upload.GetFile({
-    //       //     location: new Api.InputPhotoFileLocation({ id, accessHash, fileReference, thumbSize: 'x' }),
-    //       //     offset: bigInt.zero,
-    //       //     cdnSupported: false,
-    //       //     limit: 1048576
-    //       //   }))
-    //       //   console.log('file.getBytes()', file.getBytes())
-    //       //   console.log('file', file)
-    //       // }
-    //     }
-    //   } catch (ex: any) {
-    //     if (ex instanceof FileMigrateError) {
-    //       console.log(`Switching to DC ${ex.newDc}`)
-    //       await client._switchDC(ex.newDc)
-    //       await handleNewMessage(update)
-    //     } else {
-    //       throw ex
-    //     }
-    //   }
-    // }
     client.addEventHandler(async (update: any) => {
       // console.log(update)
       if (update instanceof Api.UpdateShortMessage) {
         setPrompts(p => [...p, { id: p.length, user: 'HarmonyOneAIBot', message: update.message }])
       } else if (update instanceof Api.UpdateNewMessage) {
-        console.log('Receive message', update.message)
+        if (!(update.message.peerId instanceof Api.PeerUser)) {
+          console.log('Skipped non-user/bot message')
+          return
+        }
+        if (update.message.peerId.userId.neq(bigInt(config.tg.botUserId))) {
+          console.log('Skipped irrelevant message')
+          return
+        }
+        console.log('Receive bot message', update.message)
         if (!(update.message instanceof Api.Message)) {
           return
         }
@@ -117,9 +100,9 @@ const AIBotChat = (): React.JSX.Element => {
   return <DescLeft>
     {prompts.map((p, i) => {
       return <React.Fragment key={`m-${i}`}>
-        <BaseText>{p.user}:</BaseText>
-        <BaseText>{p.message}</BaseText>
-        {p.photo && <ChatImageContainer>
+        <BaseText><b>{p.user}</b></BaseText>
+        <SmallTextGrey style={{ marginLeft: 16 }}>{p.message}</SmallTextGrey>
+        {p.photo && <ChatImageContainer style={{ marginLeft: 16 }}>
           <ChatImage src={p.photo}/>
         </ChatImageContainer>
         }
