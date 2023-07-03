@@ -64,6 +64,10 @@ const AIBotChat = (): React.JSX.Element => {
     client.addEventHandler(async (update: any) => {
       // console.log(update)
       if (update instanceof Api.UpdateShortMessage) {
+        if (update.userId.neq(bigInt(config.tg.botUserId))) {
+          console.log('Skipped irrelevant short message')
+          return
+        }
         setPrompts(p => [...p, { id: p.length, user: 'HarmonyOneAIBot', message: update.message }])
       } else if (update instanceof Api.UpdateNewMessage) {
         if (!(update.message.peerId instanceof Api.PeerUser)) {
