@@ -5,7 +5,7 @@ import { StringSession } from 'telegram/sessions'
 import config from '../config'
 import { getStoredSessionString, useWindowDimensions } from './util'
 import { Button } from './components/Controls'
-import { Desc } from './components/Text'
+import { BaseText, Desc } from './components/Text'
 import { InputBox, SmallTextGrey, WideLabel } from './Common'
 import { Col, Row } from './components/Layout'
 import styled from 'styled-components'
@@ -15,6 +15,23 @@ import { Loading } from './components/Misc'
 import { TelegramContext } from './Context'
 const LoginContainer = styled.div`
   max-width: 480px;
+`
+
+const QRCodeContainer = ({ children }): React.JSX.Element => {
+  const { isMobile } = useWindowDimensions()
+  return <Col style={{ width: isMobile ? 192 : 256, justifyContent: 'center' }}>
+    <Row style={{ height: isMobile ? 192 : 256, justifyContent: 'center' }}>
+      {children}
+    </Row>
+  </Col>
+}
+
+const QRCodeImage = styled.img`
+  opacity: ${props => props.$expired ? 0.1 : 1};
+  border: 1px solid lightgrey;
+  border-radius: 8px;
+  box-shadow: 0px 0px 10px lightgrey;
+  width: 100%;
 `
 
 const Session = new StringSession(getStoredSessionString())
@@ -29,8 +46,8 @@ export const LoginState = {
   Done: 100
 }
 const Login: React.FC = () => {
-  const { setUser, setSession, setLoginState, setClient } = useContext(TelegramContext)
   const { isMobile } = useWindowDimensions()
+  const { setUser, setSession, setLoginState, setClient } = useContext(TelegramContext)
   const [{ phoneNumber, password, phoneCode }, setAuthInfo] = useState(initialState)
   const [currentLoginState, setCurrentLoginState] = useState(LoginState.LoginByQrCode)
   const [requirePassword, setRequirePassword] = useState(false)
@@ -52,15 +69,14 @@ const Login: React.FC = () => {
           exceptIds: []
         })
       )
-      // console.log(result)
       if (!(result instanceof Api.auth.LoginToken)) {
         toast.error('Cannot retrieve login QR code')
       }
       const { token, expires } = result as { token?: Buffer, expires?: number }
-      console.log(expires)
+
       if (!token || !expires) {
         toast.error('Invalid QR code response from Telegram')
-        return
+        return 0
       }
       setLoginToken({ token, expires })
       return expires
@@ -69,7 +85,7 @@ const Login: React.FC = () => {
     Client.connect().then(async () => {
       setClient(Client)
       const expires = await f()
-      setTimeout(() => { setQrCodeExpired(true) }, expires - Date.now())
+      setTimeout(() => { setQrCodeExpired(true) }, Math.max(0, expires * 1000 - Date.now()))
     }).catch(console.error)
 
     return () => { clearInterval(h) }
@@ -220,22 +236,21 @@ const Login: React.FC = () => {
   if (currentLoginState === LoginState.Done) {
     return <></>
   }
+  console.log(qrCodeExpired)
 
   return (<LoginContainer>
     <Desc style={{ marginBottom: 36 }}>
       <SmallTextGrey >Using your Telegram account</SmallTextGrey>
     </Desc>
     {currentLoginState === LoginState.LoginByQrCode && <Desc>
-      {!qrCodeData && <Col style={{ width: isMobile ? 192 : 256, justifyContent: 'center' }}>
-        <Row style={{ height: isMobile ? 192 : 256, justifyContent: 'center' }}>
-          <Loading size={48}/>
-        </Row>
-      </Col>}
-      {qrCodeData && <img
-          alt={'QR Code'}
-          src={qrCodeData}
-          style={ { border: '1px solid lightgrey', borderRadius: 8, boxShadow: '0px 0px 10px lightgrey', width: isMobile ? 192 : 256 }}
-      />}
+      {!qrCodeData && <QRCodeContainer>
+        <Loading size={48}/>
+        </QRCodeContainer>}
+      {qrCodeData &&
+      <QRCodeContainer>
+        <QRCodeImage src={qrCodeData} $expired={qrCodeExpired}/>
+        {qrCodeExpired && <BaseText style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)' }}>Code Expired</BaseText>}
+      </QRCodeContainer>}
       <SmallTextGrey>Login by scanning the QR Code on Telegram</SmallTextGrey>
     </Desc>}
     {currentLoginState === LoginState.LoginByPhone && <Desc>
